@@ -1230,3 +1230,57 @@ class GetIncidentTopoByEntity(DataAccessAPIResource):
         incident_id = serializers.IntegerField(required=True, label="故障ID")
         entity_id = serializers.CharField(required=True, label="图谱实体ID")
         snapshot_id = serializers.CharField(required=True, label="图谱快照ID")
+
+
+
+class BkBaseAPIGWResource(six.with_metaclass(abc.ABCMeta, APIResource)):
+    base_url_statement = None
+    base_url = "https://bk-data.apigw.o.woa.com/prod/"
+
+    # 模块名
+    module_name = "bkdata"
+
+    TIMEOUT = 5 * 60
+
+    def get_request_url(self, validated_request_data):
+        return super(BkBaseAPIGWResource, self).get_request_url(validated_request_data).format(**validated_request_data)
+
+
+class GetMetricsDataCount(BkBaseAPIGWResource):
+    """
+    获取数据源数据
+    """
+
+    action = "/v3/datamanage/dmonitor/metrics/rawdata_count/"
+    method = "GET"
+
+    class RequestSerializer(CommonRequestSerializer):
+        data_set_ids = serializers.IntegerField(required=True, label="数据源ID")
+        start_time = serializers.CharField(required=True, label="开始时间(时间戳)")
+        end_time = serializers.CharField(required=True, label="结束时间(时间戳)")
+        time_grain = serializers.CharField(required=False, label="1d 则是按照天查询")
+
+
+class GetSamplingData(BkBaseAPIGWResource):
+    """
+    采样数据
+    """
+
+    action = "/v3/databus/rawdatas/{data_id}/tail/"
+    method = "GET"
+
+    class RequestSerializer(CommonRequestSerializer):
+        data_id = serializers.IntegerField(required=True, label="数据源ID")
+
+
+class GetStoragesData(BkBaseAPIGWResource):
+    """
+    存储信息
+    """
+
+    action = "/v3/databus/data_storages/"
+    method = "GET"
+
+    class RequestSerializer(CommonRequestSerializer):
+        raw_data_id = serializers.IntegerField(required=True, label="数据源ID")
+        with_sql = serializers.BooleanField(required=False, label="", default=True)
