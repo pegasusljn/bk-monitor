@@ -12,6 +12,8 @@ specific language governing permissions and limitations under the License.
 import base64
 import json
 import logging
+import os
+import tempfile
 from itertools import chain
 from typing import Dict, List
 
@@ -167,7 +169,8 @@ class ListResultTableResource(Resource):
         bk_biz_id = serializers.IntegerField(required=False, label="获取指定业务下的结果表信息", default=None)
         with_option = serializers.BooleanField(required=False, label="是否包含option字段信息", default=True)
         is_public_include = serializers.IntegerField(required=False, label="是否包含全业务结果表", default=None)
-        is_config_by_user = serializers.BooleanField(required=False, label="是否需要包含非用户定义的结果表", default=True)
+        is_config_by_user = serializers.BooleanField(required=False, label="是否需要包含非用户定义的结果表",
+                                                     default=True)
 
     def perform_request(self, request_data):
         # 获取bcs相关的dataid
@@ -207,7 +210,7 @@ class ListResultTableResource(Resource):
             offset = (request_data["page"] - 1) * request_data["page_size"]
 
             result_table_id_list = list(
-                result_table_queryset.values_list("table_id", flat=True)[offset : offset + limit]
+                result_table_queryset.values_list("table_id", flat=True)[offset: offset + limit]
             )
             result_list = models.ResultTable.batch_to_json(
                 result_table_id_list=result_table_id_list, with_option=request_data["with_option"]
@@ -779,7 +782,7 @@ class QueryEventGroupResource(Resource):
         if page_size > 0:
             count = query_set.count()
             offset = (validated_request_data["page"] - 1) * page_size
-            paginated_queryset = query_set[offset : offset + page_size]
+            paginated_queryset = query_set[offset: offset + page_size]
             events = self._compose_in_event(paginated_queryset)
             return {"count": count, "info": events}
 
@@ -1157,7 +1160,7 @@ class QueryTimeSeriesGroupResource(Resource):
         if page_size > 0:
             count = query_set.count()
             offset = (validated_request_data["page"] - 1) * page_size
-            paginated_query_set = query_set[offset : offset + page_size]
+            paginated_query_set = query_set[offset: offset + page_size]
             results = list(chain.from_iterable(instance.to_json_v2() for instance in paginated_query_set))
             return {"count": count, "info": results}
 
@@ -1168,7 +1171,8 @@ class QueryBCSMetricsResource(Resource):
     """查询bcs相关指标"""
 
     class RequestSerializer(serializers.Serializer):
-        bk_biz_ids = serializers.ListField(required=False, label="业务ID", default=None, child=serializers.IntegerField())
+        bk_biz_ids = serializers.ListField(required=False, label="业务ID", default=None,
+                                           child=serializers.IntegerField())
         cluster_ids = serializers.ListField(required=False, label="BCS集群ID", default=None)
         dimension_name = serializers.CharField(required=False, label="指标名称", default="")
         dimension_value = serializers.CharField(required=False, label="指标取值", default="")
@@ -1222,13 +1226,13 @@ class QueryBCSMetricsResource(Resource):
             }
 
     def _refine_metric_dimensions_from_redis(
-        self,
-        bk_biz_ids: List,
-        cluster_ids: List,
-        dimension_name: str,
-        dimension_value: str,
-        metric_datas: Dict,
-        built_in_metric_field_list: List,
+            self,
+            bk_biz_ids: List,
+            cluster_ids: List,
+            dimension_name: str,
+            dimension_value: str,
+            metric_datas: Dict,
+            built_in_metric_field_list: List,
     ):
         """通过 redis 中获取指标和维度"""
         # 当参数 指标名称和指标值 的内容全部存在时，查询内置和自定义指标
@@ -1312,7 +1316,7 @@ class ListTransferClusterResource(Resource):
         _, node_list = consul_client.kv.get(config.CONSUL_TRANSFER_PATH, keys=True)
         node_child_name = set()
         for node in node_list or []:
-            name, _, _ = node[len(config.CONSUL_TRANSFER_PATH) :].partition("/")
+            name, _, _ = node[len(config.CONSUL_TRANSFER_PATH):].partition("/")
             node_child_name.add(name)
 
         black_transfer_cluster_id = settings.TRANSFER_BUILTIN_CLUSTER_ID or ""
@@ -1786,17 +1790,44 @@ class KafkaTailResource(Resource):
             result_table = models.ResultTable.objects.get(table_id=validated_request_data["table_id"])
         except models.ResultTable.DoesNotExist:
             raise ValidationError(_("结果表不存在"))
+
         datasource = result_table.data_source
+
         param = {
             "bootstrap_servers": f"{datasource.mq_cluster.domain_name}:{datasource.mq_cluster.port}",
             "request_timeout_ms": 1000,
             "consumer_timeout_ms": 1000,
+            "ssl_insecure_skip_verify": datasource.mq_cluster.ssl_insecure_skip_verify,
+            "is_ssl_verify": datasource.mq_cluster.is_ssl_verify,
         }
+
         if datasource.mq_cluster.username:
             param["sasl_plain_username"] = datasource.mq_cluster.username
             param["sasl_plain_password"] = datasource.mq_cluster.password
-            param["security_protocol"] = "SASL_PLAINTEXT"
-            param["sasl_mechanism"] = "PLAIN"
+            param["security_protocol"] = datasource.mq_cluster.consul_config.get("auth_info",{}).get("security_protocol","SASL_PLAINTEXT")
+            param["sasl_mechanism"] = datasource.mq_cluster.consul_config.get("auth_info",{}).get("sasl_mechanisms", "PLAIN")
+
+        # 创建临时证书
+        ssl_cafile = datasource.mq_cluster.raw_ssl_certificate_authorities
+        ssl_certfile = datasource.mq_cluster.raw_ssl_certificate
+        ssl_keyfile = datasource.mq_cluster.ssl_keyfile
+        if ssl_cafile:
+            with tempfile.NamedTemporaryFile(mode="w", delete=False) as fd:
+                fd.write(ssl_cafile)
+                ssl_cafile = fd.name
+                param["ssl_cafile"] = ssl_cafile
+        if ssl_certfile:
+            with tempfile.NamedTemporaryFile(mode="w", delete=False) as fd:
+                fd.write(ssl_certfile)
+                ssl_certfile = fd.name
+                param["ssl_certfile"] = ssl_certfile
+
+        if ssl_keyfile:
+            with tempfile.NamedTemporaryFile(mode="w", delete=False) as fd:
+                fd.write(ssl_keyfile)
+                ssl_keyfile = fd.name
+                param["ssl_keyfile"] = ssl_keyfile
+
         consumer = KafkaConsumer(datasource.mq_config.topic, **param)
         size = validated_request_data["size"]
         consumer.poll(size)
@@ -1826,6 +1857,12 @@ class KafkaTailResource(Resource):
                 if msg.offset == end_offset - 1:
                     break
 
+        # 删除临时证书文件
+        for filename in [ssl_cafile, ssl_certfile, ssl_keyfile]:
+            try:
+                os.remove(filename)
+            except FileNotFoundError:
+                pass
         return result.reverse()
 
 
