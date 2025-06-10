@@ -13,7 +13,8 @@ from django.conf import settings
 from bkmonitor.iam.drf import ViewBusinessPermission
 from core.drf_resource import resource
 from core.drf_resource.viewsets import ResourceRoute, ResourceViewSet
-
+from monitor_web.incident.metrics import resources as metrics_resources
+from monitor_web.incident.events import resources as events_resources
 
 class IncidentViewSet(ResourceViewSet):
     query_post_actions = []
@@ -68,4 +69,11 @@ class IncidentViewSet(ResourceViewSet):
         ResourceRoute("POST", resource.incident.incident_alert_view, endpoint="incident_alert_view"),
         # 告警所属故障接口
         ResourceRoute("GET", resource.incident.alert_incident_detail, endpoint="alert_incident_detail"),
+
+        # 故障指标接口 metrics
+        ResourceRoute("POST", metrics_resources.IncidentMetricsSearchResource, endpoint="metrics/search"),
+
+
+        # 故障事件接口 events
+        ResourceRoute("POST", events_resources.IncidentEventsSearchResource, endpoint="events/search"),
     ]
