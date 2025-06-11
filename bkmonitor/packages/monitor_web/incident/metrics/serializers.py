@@ -15,3 +15,12 @@ class MetricsSearchSerializer(serializers.Serializer):
     index_info = serializers.JSONField(label="索引信息", default=None)
     start_time = serializers.IntegerField(label="开始时间", default=None)
     end_time = serializers.IntegerField(label="结束时间", default=None)
+    
+    def validate(self, attrs):
+        index_info = attrs.get("index_info")
+        if not isinstance(index_info, dict):
+            raise serializers.ValidationError("index_info must be a json object")
+        metric_type = attrs.get("metric_type")
+        if metric_type not in ["node", "dependency", "ebpf_call"]:
+            raise serializers.ValidationError("metric_type must be one of node, dependency, ebpf_call")
+        return attrs

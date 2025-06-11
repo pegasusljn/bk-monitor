@@ -7,3 +7,12 @@ Unless required by applicable law or agreed to in writing, software distributed 
 an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 """
+EVENT_NAMES = ["evnet.flow_error"]
+EVENT_ALIAS = {"evnet.flow_error": "flow异常事件"}
+
+EVENTS_SOURCES = ["蓝盾", "BCS", "主机监控", "其他"]
+EVENTS_LEVELS = ["warning", "normal", "default"]
+
+# time series原点时间戳，写死主要是方便后续events和metrics的时序对齐
+START_TIMESTAMP = 1746682440000
+TIME_INTERVAL = 60000

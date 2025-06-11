@@ -10,9 +10,16 @@ specific language governing permissions and limitations under the License.
 """
 from rest_framework import serializers
 
+
 class EventsSearchSerializer(serializers.Serializer):
     bk_biz_id = serializers.IntegerField(label="业务ID", default=None)
     metric_name = serializers.CharField(label="事件所在的指标名", default=None)
     index_info = serializers.JSONField(label="索引信息", default=None)
     start_time = serializers.IntegerField(label="开始时间", default=None)
     end_time = serializers.IntegerField(label="结束时间", default=None)
+
+    def validate(self, attrs):
+        index_info = attrs.get("index_info")
+        if not isinstance(index_info, dict):
+            raise serializers.ValidationError("index_info must be a json object")
+        return attrs

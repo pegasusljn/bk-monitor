@@ -10,30 +10,46 @@ specific language governing permissions and limitations under the License.
 """
 
 INCIDENT_EVENTS_SEARCH_MOCK_DATA = {
-        "series": [
-            {
-                "dimensions": {},
-                "target": "COUNT(_index)",
-                "metric_field": "_result_",
-                "datapoints": [
-                    [
-                        1749124800000,     # 时序
-                        0                  # 事件序列值
+    "bk_biz_id": 2,
+    "statistics": {
+        "event_source": {
+            "蓝盾": 1
+        },
+        "event_level": {
+            "warning": 1
+        }
+    },
+    "events": {
+        "evnet.flow_error": {
+            "event_name": "evnet.flow_error",
+            "event_alias": "flow异常事件",
+            "event_source": "蓝盾",
+            "event_level": "warning",
+            "series": [
+                {
+                    "dimensions": {},
+                    "target": "COUNT(_index)",
+                    "metric_field": "_result_",
+                    "datapoints": [
+                            [
+                                1749124800000,     # 时序
+                                0                  # 事件序列值
+                            ],
+                        [
+                                1749125100000,
+                                0
+                            ],
+                        [
+                                1749125400000,
+                                2
+                            ],
                     ],
-                    [
-                        1749125100000,
-                        0
-                    ],
-                    [
-                        1749125400000,
-                        2
-                    ],
-                ],
-                "alias": "_result_",
-                "type": "bar",
-                "dimensions_translation": {},
-                "unit": ""
-            }
-        ],
-        "metrics": [],
+                    "alias": "_result_",
+                    "type": "bar",
+                    "dimensions_translation": {},
+                    "unit": ""
+                }
+            ]
+        }
+    }
 }

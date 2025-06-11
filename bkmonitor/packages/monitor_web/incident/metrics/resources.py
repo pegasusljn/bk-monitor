@@ -7,10 +7,14 @@ Unless required by applicable law or agreed to in writing, software distributed 
 an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 """
+import string
+import time
 import logging
+import random
 from core.drf_resource.base import Resource
 from monitor_web.incident.metrics.serializers import MetricsSearchSerializer
-from monitor_web.incident.metrics.mock_data import INCIDENT_METRICS_SEARCH_MOCK_DATA
+from monitor_web.incident.metrics.constants import METRIC_NAMES, START_TIMESTAMP, TIME_INTERVAL, METRIC_ALIAS
+
 
 class IncidentMetricsSearchResource(Resource):
     """
@@ -20,11 +24,35 @@ class IncidentMetricsSearchResource(Resource):
     def __init__(self):
         super().__init__()
 
-    class RequestSerializer(MetricsSearchSerializer):
-        pass
+    RequestSerializer = MetricsSearchSerializer
 
     def perform_request(self, validated_request_data: dict) -> dict:
-        return INCIDENT_METRICS_SEARCH_MOCK_DATA
-    
+        metric_type = validated_request_data.get("metric_type")
+        bk_biz_id = validated_request_data.get("bk_biz_id")
+        mock_response = {}
+        mock_response["bk_biz_id"] = bk_biz_id
+        mock_response["metrics"] = {}
 
+        random_number = random.randint(2, 5)
+        for i in range(random_number):
+            random_str = "".join(random.choices(string.ascii_letters, k=5))
+            random_lable = f"{int(time.time())}_{random_str}"
+            origin_metric_name = random.choice(METRIC_NAMES)
+            metric_name = f"{origin_metric_name}_{random_lable}"
+            metric_alias = f"{METRIC_ALIAS[origin_metric_name]}_{random_lable}"
+            mock_response["metrics"][metric_name] = {
+                "metric_name": metric_name,
+                "metric_alias": metric_alias,
+                "metric_type": metric_type,
+                "time_series": []
+            }
+            random_series_number = random.randint(3, 8)
+            
+            mock_response["metrics"][metric_name]["time_series"] = [[
+                START_TIMESTAMP+j*TIME_INTERVAL,
+                random.randint(0, 20),
+                # 使用带权重的随机选择，80%概率为0，20%概率为1
+                random.choices([0, 1], weights=[0.8, 0.2], k=1)[0],
+            ] for j in range(random_series_number)]
 
+        return mock_response
